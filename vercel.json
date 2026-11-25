@@ -1,0 +1,25 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "angular",
+  "devCommand": "npx ng serve --port $PORT",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/budget-pilot/browser",
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/((?!api/|.*\\..*).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
