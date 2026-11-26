@@ -1,4 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 export const REFRESH_COOKIE_NAME = 'bp_refresh_token';
 export const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -14,15 +16,63 @@ export interface GoogleTokenResponse {
   error_description?: string;
 }
 
+function readLocalEnvFallback(): Record<string, string> {
+  const result: Record<string, string> = {};
+  const candidates = ['.env.local', '.env'];
+
+  for (const file of candidates) {
+    const fullPath = join(process.cwd(), file);
+    if (!existsSync(fullPath)) continue;
+
+    try {
+      const content = readFileSync(fullPath, 'utf8');
+      for (const rawLine of content.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith('#')) continue;
+        const eqIdx = line.indexOf('=');
+        if (eqIdx <= 0) continue;
+        const key = line.slice(0, eqIdx).trim();
+        let value = line.slice(eqIdx + 1).trim();
+        if (
+          (value.startsWith('"') && value.endsWith('"')) ||
+          (value.startsWith("'") && value.endsWith("'"))
+        ) {
+          value = value.slice(1, -1).trim();
+        }
+        if (key && !(key in result)) {
+          result[key] = value;
+        }
+      }
+    } catch {
+      // Ignore read errors in serverless runtime
+    }
+  }
+
+  return result;
+}
+
 export function getEnvConfig(): {
   clientId: string;
   clientSecret: string;
   redirectUri: string;
 } {
-  const clientId = process.env['GOOGLE_CLIENT_ID']?.trim() ?? '';
-  const clientSecret = process.env['GOOGLE_CLIENT_SECRET']?.trim() ?? '';
-  const redirectUri = process.env['GOOGLE_REDIRECT_URI']?.trim() || 'postmessage';
-  return { clientId, clientSecret, redirectUri };
+  let clientId = process.env['GOOGLE_CLIENT_ID']?.trim() ?? '';
+  let clientSecret = process.env['GOOGLE_CLIENT_SECRET']?.trim() ?? '';
+  let redirectUri = process.env['GOOGLE_REDIRECT_URI']?.trim() ?? '';
+
+  // Fallback local dev (si vercel dev n'a pas injecté .env.local dans le worker de fonction)
+  if (!clientId || !clientSecret) {
+    const localEnv = readLocalEnvFallback();
+    if (!clientId) clientId = localEnv['GOOGLE_CLIENT_ID'] ?? '';
+    if (!clientSecret) clientSecret = localEnv['GOOGLE_CLIENT_SECRET'] ?? '';
+    if (!redirectUri) redirectUri = localEnv['GOOGLE_REDIRECT_URI'] ?? '';
+  }
+
+  return {
+    clientId,
+    clientSecret,
+    redirectUri: redirectUri || 'postmessage',
+  };
 }
 
 export function parseCookies(req: VercelRequest): Record<string, string> {

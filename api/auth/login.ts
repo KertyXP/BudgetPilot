@@ -63,6 +63,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       return;
     }
 
+    const grantedScopes = (data.scope ?? '').split(/\s+/);
+    if (!grantedScopes.includes('https://www.googleapis.com/auth/drive.file')) {
+      res.status(403).json({
+        error: 'MISSING_DRIVE_SCOPE',
+        message:
+          'Accès Google Drive non accordé. Reconnectez-vous et cochez la case autorisant BudgetPilot à gérer ses fichiers Google Drive.',
+      });
+      return;
+    }
+
     const existingRefresh = parseCookies(req)[REFRESH_COOKIE_NAME];
     const refreshTokenToStore = data.refresh_token || existingRefresh;
 

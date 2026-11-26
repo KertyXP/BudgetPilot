@@ -47,7 +47,6 @@ export class GoogleDriveService {
       `name = '${this.escapeQuery(ROOT_FOLDER_NAME)}'`,
       `mimeType = '${FOLDER_MIME}'`,
       'trashed = false',
-      `'root' in parents`,
     ].join(' and ');
 
     const existing = await this.listFiles(q, 'modifiedTime desc');

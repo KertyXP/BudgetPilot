@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   Category,
   DriveConflictError,
@@ -478,6 +479,27 @@ export class BudgetStateService {
   }
 
   private extractError(err: unknown, fallback: string): string {
+    if (err instanceof HttpErrorResponse) {
+      const gErr = (err.error as {
+        error?: { message?: string; status?: string; errors?: { reason?: string; message?: string }[] };
+      } | null)?.error;
+      const reason = gErr?.errors?.[0]?.reason ?? gErr?.status ?? '';
+      const rawMessage = gErr?.message ?? '';
+
+      if (reason === 'accessNotConfigured' || rawMessage.includes('has not been used in project')) {
+        return 'Google Drive API n’est pas activée sur votre projet Google Cloud Console (API et services → Bibliothèque → Google Drive API → Activer).';
+      }
+      if (
+        reason === 'insufficientPermissions' ||
+        reason === 'ACCESS_TOKEN_SCOPE_INSUFFICIENT' ||
+        rawMessage.includes('insufficient authentication scopes')
+      ) {
+        return 'Permission Google Drive manquante : déconnectez-vous puis reconnectez-vous en cochant bien la case d’accès Google Drive sur l’écran de consentement.';
+      }
+      if (rawMessage) {
+        return `Google Drive (${err.status}) : ${rawMessage}`;
+      }
+    }
     if (err instanceof Error && err.message) {
       return err.message;
     }
